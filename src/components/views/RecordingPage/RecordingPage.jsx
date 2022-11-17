@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { Box } from "styles/common/layout";
 import { AwesomeText } from "styles/common/component";
@@ -8,44 +8,69 @@ import RecordIcon from "assets/images/record.png";
 
 const RecordingPage = () => {
 
-    const init = async () => {
+    const [isRecording, setIsRecording] = useState(false);
+    const [context, setContext] = useState(null);
+    const [source, setSource] = useState(null);
+    const [recorder, setRecorder] = useState(null);
+    
+    useEffect(() => {
+        return () => {
+            setContext(null);
+            setSource(null);
+            setRecorder(null);
+        }
+    }, []);
+
+    const handleRecord = async () => {
+        setIsRecording(true);
+
         const context = new AudioContext();
+        setContext(context);
 
         const microphone = await navigator.mediaDevices.getUserMedia({
             audio: true,
         }).then((stream) => stream);
 
         const source = context.createMediaStreamSource(microphone);
-
+        setSource(source);
         // Worklet Processor Loading
         await context.audioWorklet.addModule("recorder.worklet.js");
 
         // Recorder Worklet 생성하기
         const recorder = new AudioWorkletNode(context, "recorder.worklet");
-        console.log(recorder);
+        setRecorder(recorder);
 
         // 오디오 그래프 연결하기
         source.connect(recorder).connect(context.destination);
 
         recorder.port.onmessage = (e) => {
-            // console.log(e);
-            // console.log("안녕하세요");
-            // console.log(e.data);
+            console.log(e);
+            console.log(e.data);
         }
-    }
-    
-    // source.disconnect();
-    // scriptProcessor.disconnect();
-    // audioContext.close();
+    };
 
-    init();
+    const handleStop = () => {
+        setIsRecording(false);
+        
+        context.close();
+        source.disconnect();
+        recorder.disconnect();
+    };
+
+    const handlePlay = () => {
+        recorder.port.postMessage({
+            message: "hello",
+        })
+    };
 
     return (
         <Box>
             <AwesomeText className="mb-4">음성 녹음 페이지입니다.</AwesomeText>
-            <MenuBox className="mb-4">
+            {/* <MenuBox className="mb-4">
                 <RecordButton onClick={() => console.log("Button")} />
-            </MenuBox>
+            </MenuBox> */}
+            <Button variant={!isRecording ? "danger" : "light"} className='mb-2' onClick={!isRecording ? () => handleRecord() : () => handleStop()}>{!isRecording ? "🎙️ 녹음하기" : "🛑 중단하기"}</Button>
+            <Button variant="primary" className='mb-2' onClick={() => handlePlay()}>🎲 재생하기</Button>
             <Link to="/">
                 <Button variant="secondary">🏠 돌아가기</Button>
             </Link>
