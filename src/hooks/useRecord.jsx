@@ -1,103 +1,119 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import createLinkFromAudioBuffer from "utils/exporter.mjs";
 
-const useRecord = () => {
-    const [stream, setStream] = useState();
-    const [media, setMedia] = useState();
-    const [onRec, setOnRec] = useState(true);
-    const [source, setSource] = useState();
-    const [analyser, setAnalyser] = useState();
-    const [audioUrl, setAudioUrl] = useState();
+// recording-processor를 통해 녹음을 진행하고, 녹음 버퍼를 얻는 역할까지만 동작하는 훅
+const useRecord = (option) => {
+    const [context, setContext] = useState(null);
+    const [source, setSource] = useState(null);
+    const [processor, setProcessor] = useState(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [audio, setAudio] = useState(null);
+    const [time, setTime] = useState(0);
+
+    let recordingLength;
 
     useEffect(() => {
-        
+        init();
+
+        return () => {
+            context?.close();
+            source?.disconnect();
+            processor?.disconnect();
+
+            setContext(null);
+            setSource(null);
+            setProcessor(null);
+        }
     }, []);
 
-    const onRecAudio = () => {
-        // 음원정보를 담은 노드를 생성하거나 음원을 실행 또는 디코딩 시키는 일을 한다
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioContext = new AudioContext();
-        // const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        // 자바스크립트를 통해 음원의 진행상태에 직접 접근에 사용된다.
-        // Deprecated -> AudioWorklets 
-        const analyser = audioContext.createScriptProcessor(0, 1, 1); // (bufferSize, numberOfInputChannels, numberOfOutputChannel)
-        setAnalyser(analyser);
-
-        function makeSound(stream) {
-            // 내 컴퓨터의 마이크나 다른 소스를 통해 발생한 오디오 스트림의 정보를 보여준다.
-            const source = audioContext.createMediaStreamSource(stream);
-            setSource(source);
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
-        }
-        // 마이크 사용 권한 획득
-        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-            const mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.start();
-            setStream(stream);
-            setMedia(mediaRecorder);
-            makeSound(stream);
-
-            analyser.onaudioprocess = function (e) {
-                // 3분(180초) 지나면 자동으로 음성 저장 및 녹음 중지
-                if (e.playbackTime > 180) {
-                    stream.getAudioTracks().forEach(function (track) {
-                        track.stop();
-                    });
-                    mediaRecorder.stop();
-                    // 메서드가 호출 된 노드 연결 해제
-                    analyser.disconnect();
-                    audioContext.createMediaStreamSource(stream).disconnect();
-
-                    mediaRecorder.ondataavailable = function (e) {
-                        setAudioUrl(e.data);
-                        setOnRec(true);
-                    };
-                } else {
-                    setOnRec(false);
-                }
-            };
+    const init = async () => {
+        const context = new AudioContext({
+            sampleRate: option?.sampleRate ?? 48000,
         });
-    };
+        
+        const micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                autoGainControl: false,
+                noiseSuppression: false,
+                latency: 0,
+            },
+        });
+        
+        const micSource = context.createMediaStreamSource(micStream);
 
-    // 사용자가 음성 녹음을 중지했을 때
-    const offRecAudio = () => {
-        // dataavailable 이벤트로 Blob 데이터에 대한 응답을 받을 수 있음
-        media.ondataavailable = function (e) {
-            setAudioUrl(e.data);
-            setOnRec(true);
+        await context.audioWorklet.addModule("recording-processor.js");
+
+        const recordingNode = new AudioWorkletNode(context, "recording-processor", {
+            processorOptions: {
+                numberOfChannels: micSource.channelCount,
+                sampleRate: context.sampleRate,
+                maxFrameCount: context.sampleRate * (option?.time ?? 10),
+            },
+        });
+
+        const monitorNode = context.createGain();
+        
+        recordingNode.port.onmessage = (event) => {
+            switch (event.data.message) {
+                case "UPDATE_RECORDING_STATE": {
+                    recordingLength = event.data.recordingLength;
+                    setTime(event.data.recordingTime);
+                    break;
+                }
+                case "SHARE_RECORDING_BUFFER": {
+                    /**
+                     * Error => Uncaught DOMException: Failed to execute 'createBuffer' on 'BaseAudioContext': The number of frames provided (0) is less than or equal to the minimum bound (0).
+                     * Solution => recordingLength !== 0
+                     */
+                    const recordingBuffer = context.createBuffer(
+                        micSource.channelCount,
+                        recordingLength,
+                        context.sampleRate
+                    );
+                    
+                    for (let i = 0; i < micSource.channelCount; i++) {
+                        recordingBuffer.copyToChannel(event.data.buffer[i], i, 0);
+                    }
+                    
+                    setAudio(createLinkFromAudioBuffer(recordingBuffer, true));
+                    break;
+                }
+                case "MAX_RECORDING_LENGTH_REACHED": {
+                    setIsRecording(false);
+                    break;
+                }
+                default:
+            }
         };
 
-        // 모든 트랙에서 stop()을 호출해 오디오 스트림을 정지
-        stream.getAudioTracks().forEach(function (track) {
-            track.stop();
-        });
+        micSource.connect(recordingNode).connect(monitorNode).connect(context.destination);
+        
+        setContext(context);
+        setSource(micSource);
+        setProcessor(recordingNode);
+    }
 
-        // 미디어 캡처 중지
-        media.stop();
-        // 메서드가 호출 된 노드 연결 해제
-        analyser.disconnect();
-        source.disconnect();
+    const record = () => {
+        setIsRecording(true);
+
+        processor.port.postMessage({
+            message: "UPDATE_RECORDING_STATE",
+            isRecording: true,
+        });
     };
 
-    const onSubmitAudioFile = useCallback(() => {
-        if (audioUrl) {
-            console.log(URL.createObjectURL(audioUrl)); // 출력된 링크에서 녹음된 오디오 확인 가능
-        }
-        // File 생성자를 사용해 파일로 변환
-        const sound = new File([audioUrl], "soundBlob", {
-            lastModified: new Date().getTime(),
-            type: "audio",
-        });
-        console.log(sound); // File 정보 출력
-    }, [audioUrl]);
+    const pause = () => {
+        setIsRecording(false);
 
-    return (
-        <>
-            <button onClick={onRec ? onRecAudio : offRecAudio}>녹음</button>
-            <button onClick={onSubmitAudioFile}>결과 확인</button>
-        </>
-    );
+        processor.port.postMessage({
+            message: "UPDATE_RECORDING_STATE",
+            isRecording: false,
+        });
+    };
+
+    return { isRecording, time, audio, record, pause };
 };
 
 export default useRecord;
+

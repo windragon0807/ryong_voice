@@ -22,7 +22,8 @@
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",
     "redux-thunk": "^2.4.1",
-    "styled-components": "^5.3.5"
+    "styled-components": "^5.3.5",
+    "wavesurfer.js": "^6.4.0"
   },
   "scripts": {
     "start": "react-scripts start",

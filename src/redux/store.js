@@ -3,7 +3,6 @@ import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, 
 import logger from "redux-logger";
 import ReduxThunk from "redux-thunk";
 import sessionStorage from "redux-persist/lib/storage/session";
-import ModalSlice from './slices/ModalSlice';
 
 const config = {
     key: "root",
@@ -12,7 +11,7 @@ const config = {
 };
 
 const rootReducer = combineReducers({
-    modal: ModalSlice,
+    
 });
 
 const persistedReducer = persistReducer(config, rootReducer);

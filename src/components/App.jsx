@@ -7,7 +7,6 @@ import { ThemeProvider } from "styled-components";
 import theme from "styles/theme";
 import "bootstrap/dist/css/bootstrap.min.css";
 import GlobalStyle from "styles/GlobalStyle";
-import Modal from 'components/modal/Modal';
 
 function App() {
     return (
@@ -17,7 +16,6 @@ function App() {
                     <ThemeProvider theme={theme}>
                         <GlobalStyle />
                         <Router />
-                        <Modal />
                     </ThemeProvider>
                 </BrowserRouter>
             </PersistGate>
