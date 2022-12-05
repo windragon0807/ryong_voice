@@ -66,6 +66,8 @@ const useRecord = (option) => {
                      * Error => Uncaught DOMException: Failed to execute 'createBuffer' on 'BaseAudioContext': The number of frames provided (0) is less than or equal to the minimum bound (0).
                      * Solution => recordingLength !== 0
                      */
+                    console.log(event.data.buffer); // 2채널
+
                     const recordingBuffer = context.createBuffer(
                         micSource.channelCount,
                         recordingLength,
@@ -75,8 +77,9 @@ const useRecord = (option) => {
                     for (let i = 0; i < micSource.channelCount; i++) {
                         recordingBuffer.copyToChannel(event.data.buffer[i], i, 0);
                     }
-                    
+
                     setAudio(createLinkFromAudioBuffer(recordingBuffer, true));
+
                     break;
                 }
                 case "MAX_RECORDING_LENGTH_REACHED": {

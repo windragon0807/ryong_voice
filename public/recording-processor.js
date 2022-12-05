@@ -28,7 +28,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
 
         this.port.onmessage = (event) => {
             if (event.data.message === "UPDATE_RECORDING_STATE") {
-                console.log("[App] -> [Processor]", {
+                console.log("%c[App] %c-> %c[Processor]", "color: #FFC700; font-weight: 700", "", "color: pink; font-weight: 700", {
                     message: event.data.message,
                     isRecording: event.data.isRecording,
                 });
@@ -41,7 +41,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
                         buffer: this._recordingBuffer,
                     }
                     this.port.postMessage(message);
-                    console.log("[Processor] -> [App]", message);
+                    console.log("%c[Processor] %c-> %c[App]", "color: pink; font-weight: 700", "", "color: #FFC700; font-weight: 700", message);
                 }
             }
         };
@@ -93,7 +93,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
                     this.sampleSum = 0;
 
                     this.port.postMessage(message);
-                    console.log("[Processor] -> [App]", message);
+                    console.log("%c[Processor] %c-> %c[App]", "color: pink; font-weight: 700", "", "color: #FFC700; font-weight: 700", message);
                 } else {
                     this.framesSinceLastPublish += 128;
                 }

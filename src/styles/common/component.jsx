@@ -1,6 +1,4 @@
-import styled, { keyframes } from "styled-components";
-import Form from "react-bootstrap/Form";
-import Button from "react-bootstrap/Button";
+import styled, { keyframes, css } from "styled-components";
 
 const backgroundAnim = keyframes`
     0% { background-position: 0 50%; }
@@ -28,17 +26,12 @@ export const AwesomeText = styled.div`
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    ${({ pointer }) => pointer && css`
+        cursor: pointer;
+    `}
 `;
 
-export const FlexForm = styled(Form)`
-    display: flex;
-    flex-direction: column;
-`;
-
-export const ExtendButton = styled(Button)`
-    width: 100%;
-`;
-
-export const ErrorText = styled.div`
-    color: #d63031;
+export const Wave = styled.div`
+    width: 50%;
+    height: 90px;
 `;

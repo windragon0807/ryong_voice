@@ -1,61 +1,64 @@
-import styled from "styled-components";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import Button from "react-bootstrap/Button";
 import useRecord from 'hooks/useRecord.jsx';
 import { Box } from "styles/common/layout";
-import { AwesomeText } from "styles/common/component";
+import { AwesomeText, Wave } from "styles/common/component";
+import WaveSurfer from 'wavesurfer.js';
 
 const RecordingPage = () => {
-    const { isRecording, time, audio, record, pause } = useRecord({
+    const navigate = useNavigate();
+    const [isPlaying, setIsPlaying] = useState(false);
+    const waveform = useRef(null);
+    const { isRecording, audio, record, pause } = useRecord({
         sampleRate: 48000,
         time: 10,
     });
+    const url = "https://api.twilio.com//2010-04-01/Accounts/AC25aa00521bfac6d667f13fec086072df/Recordings/RE6d44bc34911342ce03d6ad290b66580c.mp3";
+
+    useEffect(() => {
+        if (!waveform.current) {
+            waveform.current = WaveSurfer.create({
+                barWidth: 3,
+                barRadius: 3,
+                barGap: 2,
+                barMinHeight: 1,
+                cursorWidth: 1,
+                container: "#waveform",
+                backend: "WebAudio",
+                height: 80,
+                progressColor: "#89a5ea",
+                responsive: true,
+                waveColor: "#C4C4C4",
+                cursorColor: "transparent"
+            });
+
+            waveform.current.on('finish', () => {
+                setIsPlaying(false);
+            });
+        }
+        waveform.current.load(document.querySelector("#track"));
+    }, [audio]);
+
+    const handlePlayPause = () => {
+        waveform.current.playPause();
+        setIsPlaying(waveform.current.isPlaying());
+    };
 
     return (
         <Box>
             <AwesomeText className="mb-4">음성 녹음 페이지입니다.</AwesomeText>
-            <Button variant={!isRecording ? "danger" : "light"} className='mb-2' onClick={!isRecording ? () => record() : () => pause()}>
+            <Button variant={!isRecording ? "outline-danger" : "outline-dark"} className='mb-2' onClick={!isRecording ? () => record() : () => pause()}>
                 {!isRecording ? "🎙️ 녹음하기" : "🛑 중단하기"}
             </Button>
-            <Button variant="primary" className='mb-2' disabled>🐇 {time}</Button>
-            <Audio className='mb-2' controls src={audio} />
-            <Link to="/">
-                <Button variant="secondary">🏠 돌아가기</Button>
-            </Link>
+            <Button variant="outline-primary" className='mb-2' onClick={() => handlePlayPause()}>{isPlaying ? "⏸️ 일시정지" : "🔔 재생하기"}</Button>
+            <Wave id="waveform" className='mb-2' />
+            <audio id="track" src={audio ?? url} />
+            <Button variant="outline-warning" onClick={() => navigate("/")}>🏠 돌아가기</Button>
         </Box>
     );
 };
 
-const Audio = styled.audio`
-    border: 1px solid #dfe1e5;
-    border-radius: 40px;
-
-    &:hover {
-        box-shadow: 0 1px 6px rgb(32 33 36 / 28%);
-        border-color: rgba(223, 225, 229, 0);
-    }
-    
-    // 패널 배경
-    &::-webkit-media-controls-panel {
-        background: #fff;
-        box-shadow: none;
-    }
-    // 음소거 버튼
-    &::-webkit-media-controls-mute-button {}
-    // 시작/중지 버튼
-    &::-webkit-media-controls-play-button {}
-    // 재생 진행 시간
-    &::-webkit-media-controls-current-time-display {
-        font-weight: 700;
-    }
-    // 재생 가능 시간
-    &::-webkit-media-controls-time-remaining-display {
-        font-weight: 700;
-    }
-    // 재생 바
-    &::-webkit-media-controls-timeline {}
-    // 볼륨 슬라이더
-    &::-webkit-media-controls-volume-slider {}
-`;
-
 export default RecordingPage;
+
+// TODO: 채널 1 입력 시 합치기
